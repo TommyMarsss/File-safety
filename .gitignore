@@ -10,3 +10,6 @@ venv/
 
 # Session trajectory (local copy only, never push)
 /trajectory/
+
+# uploaded files
+uploads/

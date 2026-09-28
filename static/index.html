@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>安全文件上传服务</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main>
+  <h1>安全文件上传服务</h1>
+  <p class="subtitle">服务端基于文件魔数（magic bytes）校验真实类型，防御路径穿越与压缩炸弹。仅标准库实现。</p>
+
+  <section class="card">
+    <h2>1. 选择文件上传</h2>
+    <form id="upload-form">
+      <input type="file" id="file-input" name="file">
+      <button type="submit" id="upload-btn" disabled>上传</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>2. 或使用预置样本</h2>
+    <p class="hint">样本由服务端实时生成，前端获取后通过真实 multipart/form-data 上传。</p>
+    <div id="samples" class="samples">加载中…</div>
+  </section>
+
+  <section class="card">
+    <h2>判定结果</h2>
+    <div id="result" class="result empty">尚未上传任何文件</div>
+  </section>
+
+  <section class="card">
+    <h2>历史记录</h2>
+    <ul id="history" class="history"></ul>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
