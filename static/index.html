@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>安全文件上传服务</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "PingFang SC", sans-serif; max-width: 860px;
+         margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; }
+  .card { border: 1px solid #ddd; border-radius: 8px; padding: 1rem 1.25rem; margin-top: .75rem; }
+  .row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+  button { padding: .45rem .9rem; border: 1px solid #888; border-radius: 6px;
+           background: #fff; cursor: pointer; font-size: .9rem; }
+  button:hover { background: #f0f0f0; }
+  button.danger { border-color: #c0392b; color: #c0392b; }
+  button.danger:hover { background: #fdecea; }
+  button.safe { border-color: #27ae60; color: #27ae60; }
+  button.safe:hover { background: #eafaf1; }
+  #log { margin-top: 1.5rem; }
+  .entry { border-left: 4px solid #999; padding: .5rem .8rem; margin: .5rem 0;
+           background: #fafafa; font-size: .88rem; border-radius: 0 6px 6px 0; }
+  .entry.ok { border-color: #27ae60; background: #f0faf4; }
+  .entry.bad { border-color: #c0392b; background: #fdf1f0; }
+  .entry .verdict { font-weight: 700; }
+  .entry.ok .verdict { color: #27ae60; }
+  .entry.bad .verdict { color: #c0392b; }
+  .entry code { background: #eee; padding: 0 .3em; border-radius: 3px; }
+  .meta { color: #666; margin-top: .2rem; }
+</style>
+</head>
+<body>
+<h1>安全文件上传服务 <small style="font-weight:normal;color:#888">魔数校验 · 路径穿越防御 · 压缩炸弹检测</small></h1>
+
+<div class="card">
+  <h2 style="margin-top:0">1. 上传任意文件</h2>
+  <div class="row">
+    <input type="file" id="fileInput">
+    <button id="uploadBtn">上传</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2 style="margin-top:0">2. 预置样本（真实 multipart 上传）</h2>
+  <div class="row">
+    <button class="safe"   data-sample="valid.png"      data-name="photo.png">合法 PNG</button>
+    <button class="safe"   data-sample="valid.zip"      data-name="docs.zip">合法 ZIP（会解压）</button>
+  </div>
+  <div class="row">
+    <button class="danger" data-sample="fake-exe"       data-name="photo.png">伪造 .png 的 EXE</button>
+    <button class="danger" data-sample="valid.png"      data-name="../../etc/evil.png">路径穿越文件名</button>
+    <button class="danger" data-sample="zip-bomb.zip"   data-name="bomb.zip">ZIP 压缩炸弹</button>
+    <button class="danger" data-sample="symlink.zip"    data-name="links.zip">含符号链接的 ZIP</button>
+    <button class="danger" data-sample="traversal.zip"  data-name="trav.zip">含 ../ 条目的 ZIP</button>
+  </div>
+</div>
+
+<div id="log"></div>
+
+<script>
+const log = document.getElementById('log');
+
+function showResult(filename, status, data) {
+  const div = document.createElement('div');
+  div.className = 'entry ' + (data.accepted ? 'ok' : 'bad');
+  const verdict = data.accepted ? '✔ 接受' : '✘ 拒绝';
+  let html = `<span class="verdict">${verdict}</span> <code>${escapeHtml(filename)}</code>` +
+             `<div>${escapeHtml(data.reason || '')}</div>`;
+  const meta = [];
+  if (data.detected_type) meta.push('识别类型: ' + data.detected_type);
+  if (data.stored_as) meta.push('存储为: ' + data.stored_as);
+  if (data.extracted_to) meta.push('解压至: ' + data.extracted_to);
+  meta.push('HTTP ' + status);
+  html += `<div class="meta">${meta.map(escapeHtml).join(' · ')}</div>`;
+  div.innerHTML = html;
+  log.prepend(div);
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function uploadBlob(blob, filename) {
+  const fd = new FormData();
+  fd.append('file', blob, filename);
+  try {
+    const res = await fetch('/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    showResult(filename, res.status, data);
+  } catch (e) {
+    showResult(filename, 0, { accepted: false, reason: '网络错误: ' + e.message });
+  }
+}
+
+document.getElementById('uploadBtn').addEventListener('click', () => {
+  const f = document.getElementById('fileInput').files[0];
+  if (!f) { alert('请先选择文件'); return; }
+  uploadBlob(f, f.name);
+});
+
+document.querySelectorAll('[data-sample]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    try {
+      const res = await fetch('/samples/' + btn.dataset.sample);
+      const blob = await res.blob();
+      await uploadBlob(blob, btn.dataset.name);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+});
+</script>
+</body>
+</html>
